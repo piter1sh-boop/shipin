@@ -3,6 +3,24 @@ import { usePageTracking } from '../hooks/useBehaviorTracking'
 import { Card, DayProgress, StatCard, Badge, TaskTypeBadge, Button } from '../components/ui'
 import { MessageSquare, AlertTriangle } from 'lucide-react'
 
+function getDynamicRiskWarning(
+  persona: { avgTaskCompleteRate: number; strengths: string[]; weaknesses: string[] } | null,
+  checkins: { valueScore: number }[]
+): string | null {
+  if (!persona) return null;
+
+  if (persona.avgTaskCompleteRate < 50) {
+    return '你最近任务完成率偏低，建议先减少任务数量，确保完成质量。';
+  }
+  if (persona.strengths?.includes('coding') && !persona.strengths?.includes('sales')) {
+    return '你擅长技术，但用户访谈和销售是验证的关键。不要只做产品。';
+  }
+  if (checkins.slice(-3).every(c => c.valueScore < 3)) {
+    return '连续几天价值评分较低，考虑是否方向出了问题，或者任务太难。';
+  }
+  return null;
+}
+
 export default function DashboardPage() {
   usePageTracking('dashboard')
   const startupProfile = useStore(s => s.startupProfile)
@@ -12,6 +30,8 @@ export default function DashboardPage() {
   const checkins = useStore(s => s.checkins)
   const completeTask = useStore(s => s.completeTask)
   const submitCheckin = useStore(s => s.submitCheckin)
+
+  const dynamicWarning = getDynamicRiskWarning(null, checkins)
 
   const today = new Date().toISOString().split('T')[0]
   const todayTasks = dailyTasks.filter(t => t.taskDate === today)
@@ -79,11 +99,13 @@ export default function DashboardPage() {
         <div className="flex items-start gap-3">
           <AlertTriangle size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">本周风险提醒</h3>
+            <h3 className="text-sm font-semibold text-gray-900">
+              {dynamicWarning ? 'AI风险提醒' : '本周风险提醒'}
+            </h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              {interviews.length < 5
+              {dynamicWarning || (interviews.length < 5
                 ? '用户访谈数量不足，建议尽快开始第一轮访谈。访谈是验证假设的核心动作。'
-                : '保持当前执行节奏，注意收集用户原话证据。'}
+                : '保持当前执行节奏，注意收集用户原话证据。')}
             </p>
           </div>
         </div>
