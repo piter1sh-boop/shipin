@@ -3,7 +3,8 @@ import express from 'express';
 import { db } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
 import { indexInterview } from '../services/ragIndexer.js';
-import { updateUserPersona } from '../services/personaUpdater.js';
+import { updateUserPersona, getUserPersona, calculateWeaknessTypes } from '../services/personaUpdater.js';
+import { chat } from '../services/minimax.js';
 
 export const behaviorRouter = express.Router();
 
@@ -72,4 +73,73 @@ behaviorRouter.post('/update-persona', (req, res) => {
   }
   updateUserPersona(userId, { traits, behavior_patterns });
   res.json({ ok: true });
+});
+
+// POST /api/daily-task — generate personalized daily task recommendation
+behaviorRouter.post('/daily-task', async (req, res) => {
+  try {
+    const { userId, dayNumber, interviewCount, leadCount } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId required' });
+    }
+
+    const persona = getUserPersona(userId);
+    const { skippedCount, completedCount } = calculateWeaknessTypes(userId);
+    const avgRate = persona?.behavior_patterns?.avg_task_complete_rate ?? 0;
+
+    // Determine task priorities based on persona
+    const weaknessTypes = Object.entries(skippedCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([type]) => type);
+
+    // Build context for AI
+    const context = `
+用户当前状态：
+- 任务完成率：${(avgRate * 100).toFixed(0)}%
+- 薄弱环节：${weaknessTypes.join(', ') || '暂无记录'}
+- 已完成访谈：${interviewCount || 0}次
+- 已有线索：${leadCount || 0}条
+- 当前天数：第${dayNumber || 1}天
+
+请根据用户画像，推荐今天最重要的1-3个任务。
+要求：
+1. 优先推动用户完成核心验证动作
+2. 如果完成率低，降低任务难度
+3. 薄弱环节需要重点突破
+4. 每天最多3个任务
+`.trim();
+
+    const system = `你是30天创业执行教练，负责根据用户画像推荐每日任务。
+输出JSON格式：
+{
+  "mainTask": {"title": "任务标题", "description": "描述", "successCriteria": "完成标准", "estimatedMinutes": 数字},
+  "secondaryTasks": [{"title": "", "description": "", "estimatedMinutes": 0}, ...],
+  "coachNote": "给用户的简短提示",
+  "riskWarning": "如果有问题，给出警告"
+}
+用中文输出。`;
+
+    const reply = await chat([
+      { role: 'system', content: system },
+      { role: 'user', content: context },
+    ]);
+
+    // Parse JSON from response
+    const cleaned = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (jsonMatch) {
+      try {
+        const result = JSON.parse(jsonMatch[1]);
+        res.json(result);
+      } catch {
+        res.json({ mainTask: { title: '今日任务', description: '查看你的任务列表', estimatedMinutes: 60 } });
+      }
+    } else {
+      res.json({ mainTask: { title: '今日任务', description: '查看你的任务列表', estimatedMinutes: 60 } });
+    }
+  } catch (err) {
+    console.error('[/api/daily-task]', err.message);
+    res.status(500).json({ error: '任务推荐失败' });
+  }
 });

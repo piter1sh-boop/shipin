@@ -138,6 +138,7 @@ export const aiService = {
   },
 
   async generateDailyTasks(
+    userId: string,
     context: {
       productIdea: string
       currentStage: string
@@ -148,10 +149,13 @@ export const aiService = {
     },
     dayNumber: number,
   ): Promise<DailyTaskRecommendation> {
-    // Backend doesn't have a daily task endpoint yet; use local mock
-    // In future, add POST /api/daily-task and call it here
     try {
-      return await post<DailyTaskRecommendation>('/api/daily-task', { ...context, dayNumber })
+      return await post<DailyTaskRecommendation>('/api/daily-task', {
+        userId,
+        dayNumber,
+        interviewCount: context.interviewCount,
+        leadCount: context.leadCount,
+      })
     } catch {
       return FALLBACK_DAILY_TASKS
     }
