@@ -4,6 +4,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { aiRouter } from './routes/ai.js'
+import { behaviorRouter } from './routes/behavior.js'  // 🆕 Add this
 
 // Initialize database
 initDatabase()  // 🆕 Add this line
@@ -16,6 +17,9 @@ app.use(express.json())
 
 // AI proxy routes
 app.use('/api', aiRouter)
+
+// Behavior tracking routes
+app.use('/api', behaviorRouter)  // 🆕 Add this
 
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true }))
