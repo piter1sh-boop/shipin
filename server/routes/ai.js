@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import { chat, chatJson } from '../services/minimax.js'
+import { buildCoachPrompt } from '../services/promptBuilder.js'
+import { indexCoachWisdom } from '../services/ragIndexer.js'
 
 export const aiRouter = Router()
 
@@ -80,25 +82,24 @@ aiRouter.post('/plan', async (req, res) => {
 // POST /api/coach — coach chat
 aiRouter.post('/coach', async (req, res) => {
   try {
-    const { message, context } = req.body
+    const { message, context, history = [] } = req.body
     if (!message) return res.status(400).json({ error: 'message is required' })
 
     const profile = context?.startupProfile
-    const system = `你是一个严厉但务实的30天创业执行教练，服务对象是AI独立开发者和程序员创业者。
-你的目标不是让用户感觉良好，而是推动用户每天完成真实创业动作。
-你必须优先推动用户接触真实用户、验证问题、获得付费信号，而不是沉迷写代码。
-你给出的建议必须具体、可执行、可在24小时内完成。
-当证据不足时，你必须指出证据不足，不允许假装确定。
-用中文回答。`
+    const userId = profile?.userId || 'default_user'
 
-    const ctxInfo = profile
-      ? `用户创业画像：\n产品：${profile.productIdea}\n目标用户：${profile.targetUser}\n当前阶段：${profile.currentStage}\nAI分析：${profile.aiSummary}\n`
-      : ''
+    // 构建动态Prompt（包含用户画像、RAG上下文、历史）
+    const prompt = buildCoachPrompt(userId, message, history)
 
+    // 调用AI
     const reply = await chat([
-      { role: 'system', content: system },
-      { role: 'user', content: ctxInfo + `\n用户问题：${message}` },
+      { role: 'system', content: prompt },
+      { role: 'user', content: message },
     ])
+
+    // 将教练回复索引到RAG（用于后续检索）
+    const taskType = inferTaskType(message)
+    indexCoachWisdom(userId, reply, taskType)
 
     res.json({ reply })
   } catch (err) {
@@ -106,6 +107,17 @@ aiRouter.post('/coach', async (req, res) => {
     res.status(500).json({ error: 'AI回复失败，请稍后重试' })
   }
 })
+
+// 从用户消息推断任务类型，用于RAG索引
+function inferTaskType(message) {
+  const msg = message.toLowerCase()
+  if (msg.includes('访谈') || msg.includes('用户') || msg.includes('痛点')) return 'interview'
+  if (msg.includes('落地页') || msg.includes('landing')) return 'landing_page'
+  if (msg.includes('原型') || msg.includes('mvp') || msg.includes('demo')) return 'prototype'
+  if (msg.includes('线索') || msg.includes('销售') || msg.includes('付费')) return 'sales'
+  if (msg.includes('复盘') || msg.includes('周') || msg.includes('总结')) return 'review'
+  return 'general'
+}
 
 // POST /api/review/weekly — generate weekly review
 aiRouter.post('/review/weekly', async (req, res) => {

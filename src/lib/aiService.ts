@@ -171,11 +171,20 @@ export const aiService = {
 
   async coachReply(
     message: string,
-    _history: CoachMessage[],
+    history: CoachMessage[],
     context: { startupProfile: StartupProfile | null },
   ): Promise<string> {
     try {
-      const data = await post<{ reply: string }>('/api/coach', { message, context })
+      // 只传递必要的历史消息（最近6条，避免上下文过长）
+      const recentHistory = history.slice(-6).map(m => ({
+        role: m.role as 'user' | 'coach',
+        content: m.content,
+      }))
+      const data = await post<{ reply: string }>('/api/coach', {
+        message,
+        context,
+        history: recentHistory,
+      })
       return data.reply
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)

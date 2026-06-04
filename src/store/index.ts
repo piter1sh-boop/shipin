@@ -203,6 +203,20 @@ export const useStore = create<StoreState>((set, get) => ({
     )
     storage.set('dailyTasks', tasks)
     set({ dailyTasks: tasks })
+
+    // Update user persona
+    const user = get().user!
+    const completedCount = tasks.filter(t => t.status === 'completed').length
+    const totalCount = tasks.length
+    const rate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) / 100 : 0
+    fetch('/api/update-persona', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        behavior_patterns: { avg_task_complete_rate: rate }
+      }),
+    }).catch(() => {})
   },
 
   skipTask: (taskId) => {
@@ -211,6 +225,20 @@ export const useStore = create<StoreState>((set, get) => ({
     )
     storage.set('dailyTasks', tasks)
     set({ dailyTasks: tasks })
+
+    // Update user persona (lower rate for skipped tasks)
+    const user = get().user!
+    const completedCount = tasks.filter(t => t.status === 'completed').length
+    const totalCount = tasks.length
+    const rate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) / 100 : 0
+    fetch('/api/update-persona', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        behavior_patterns: { avg_task_complete_rate: rate }
+      }),
+    }).catch(() => {})
   },
 
   updateTaskStatus: (taskId, status) => {
@@ -234,6 +262,24 @@ export const useStore = create<StoreState>((set, get) => ({
     const checkins = [...get().checkins, checkin]
     storage.set('checkins', checkins)
     set({ checkins })
+
+    // Update user persona with checkin data
+    const tasks = get().dailyTasks
+    const completedCount = tasks.filter(t => t.status === 'completed').length
+    const totalCount = tasks.length
+    const rate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) / 100 : 0
+    fetch('/api/update-persona', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        behavior_patterns: {
+          avg_task_complete_rate: rate,
+          last_checkin_value_score: data.valueScore,
+          last_checkin_blocked: data.blockedText,
+        }
+      }),
+    }).catch(() => {})
   },
 
   addInterview: (data) => {
@@ -248,6 +294,13 @@ export const useStore = create<StoreState>((set, get) => ({
     const interviews = [...get().interviews, interview]
     storage.set('interviews', interviews)
     set({ interviews })
+
+    // Index interview to RAG (fire and forget)
+    fetch('/api/index-interview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, interview: data }),
+    }).catch(() => {})
   },
 
   updateInterview: (id, data) => {

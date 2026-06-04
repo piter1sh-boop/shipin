@@ -1,6 +1,5 @@
 // server/services/ragIndexer.js
 import { db } from '../db/index.js';
-import { v4 as uuid } from 'uuid';
 
 /**
  * Index interview record into RAG
@@ -13,34 +12,40 @@ export function indexInterview(userId, interview) {
     interview.verbatim_quotes,
   ].filter(Boolean).join('\n---\n');
 
-  db.prepare(`
-    INSERT INTO rag_index (content, content_type, user_id, related_task_type, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
-    uuid(),
-    content,
-    'interview_pain_point',
-    userId,
-    'interview',
-    new Date().toISOString()
-  );
+  try {
+    db.prepare(`
+      INSERT INTO rag_index (content, content_type, user_id, related_task_type, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      content,
+      'interview_pain_point',
+      userId,
+      'interview',
+      new Date().toISOString()
+    );
+  } catch (e) {
+    console.error('[RAG] indexInterview error:', e.message);
+  }
 }
 
 /**
  * Index coach advice into RAG
  */
 export function indexCoachWisdom(userId, message, relatedTaskType) {
-  db.prepare(`
-    INSERT INTO rag_index (content, content_type, user_id, related_task_type, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
-    uuid(),
-    message,
-    'coach_wisdom',
-    userId,
-    relatedTaskType,
-    new Date().toISOString()
-  );
+  try {
+    db.prepare(`
+      INSERT INTO rag_index (content, content_type, user_id, related_task_type, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      message,
+      'coach_wisdom',
+      userId,
+      relatedTaskType,
+      new Date().toISOString()
+    );
+  } catch (e) {
+    console.error('[RAG] indexCoachWisdom error:', e.message);
+  }
 }
 
 /**

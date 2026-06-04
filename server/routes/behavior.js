@@ -2,6 +2,8 @@
 import express from 'express';
 import { db } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
+import { indexInterview } from '../services/ragIndexer.js';
+import { updateUserPersona } from '../services/personaUpdater.js';
 
 export const behaviorRouter = express.Router();
 
@@ -50,4 +52,24 @@ behaviorRouter.get('/user-context/:userId', (req, res) => {
     recentBlockers,
     recentHitRate,
   });
+});
+
+// POST /api/index-interview — index interview to RAG
+behaviorRouter.post('/index-interview', (req, res) => {
+  const { userId, interview } = req.body;
+  if (!userId || !interview) {
+    return res.status(400).json({ error: 'userId and interview required' });
+  }
+  indexInterview(userId, interview);
+  res.json({ ok: true });
+});
+
+// POST /api/update-persona — update user persona
+behaviorRouter.post('/update-persona', (req, res) => {
+  const { userId, traits, behavior_patterns } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+  updateUserPersona(userId, { traits, behavior_patterns });
+  res.json({ ok: true });
 });
