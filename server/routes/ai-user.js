@@ -114,3 +114,41 @@ aiUserRouter.get('/:id/profile', adminMiddleware, (req, res) => {
     res.status(500).json({ error: '获取AI用户画像失败' });
   }
 });
+
+// POST /api/admin/ai-users/:id/start - 启动AI用户执行
+aiUserRouter.post('/:id/start', adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { startAIUserExecution } = require('../services/ai-agent-engine.js');
+
+    // 检查AI用户是否存在
+    const aiUser = db.prepare('SELECT * FROM users WHERE id = ? AND is_ai_user = 1').get(id);
+    if (!aiUser) {
+      return res.status(404).json({ error: 'AI用户不存在' });
+    }
+
+    const result = await startAIUserExecution(id);
+    res.json({ ok: true, result });
+  } catch (err) {
+    console.error('[/api/admin/ai-users/:id/start]', err.message);
+    res.status(500).json({ error: '启动AI用户失败' });
+  }
+});
+
+// GET /api/admin/ai-users/:id/logs - 获取AI用户执行日志
+aiUserRouter.get('/:id/logs', adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const logs = db.prepare(`
+      SELECT * FROM ai_agent_logs
+      WHERE ai_user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `).all(id);
+
+    res.json({ logs });
+  } catch (err) {
+    console.error('[/api/admin/ai-users/:id/logs]', err.message);
+    res.status(500).json({ error: '获取执行日志失败' });
+  }
+});
