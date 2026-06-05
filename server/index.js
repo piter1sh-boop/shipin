@@ -7,6 +7,7 @@ import express from 'express'
 import cors from 'cors'
 import { aiRouter } from './routes/ai.js'
 import { behaviorRouter } from './routes/behavior.js'
+import { authRouter } from './routes/auth.js'
 
 // Initialize database
 initDatabase()
@@ -22,6 +23,9 @@ app.use('/api', aiRouter)
 
 // Behavior tracking routes
 app.use('/api', behaviorRouter)  // 🆕 Add this
+
+// Auth routes
+app.use('/api/auth', authRouter);
 
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true }))
