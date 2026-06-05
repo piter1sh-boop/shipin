@@ -5,6 +5,12 @@ import { db } from '../db/index.js';
  * Update user persona
  */
 export function updateUserPersona(userId, updates) {
+  // Ensure user exists first (foreign key constraint)
+  const userExists = db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId);
+  if (!userExists) {
+    db.prepare(`INSERT OR IGNORE INTO users (id, created_at) VALUES (?, ?)`).run(userId, new Date().toISOString());
+  }
+
   const existing = db.prepare('SELECT * FROM user_persona WHERE user_id = ?').get(userId);
 
   let traits = {};
