@@ -143,3 +143,72 @@ behaviorRouter.post('/daily-task', async (req, res) => {
     res.status(500).json({ error: '任务推荐失败' });
   }
 });
+
+// GET /api/admin/users — get all users with their data
+behaviorRouter.get('/admin/users', (req, res) => {
+  try {
+    // Get all users with their profiles
+    const users = db.prepare(`
+      SELECT
+        u.id as userId,
+        u.name,
+        u.email,
+        u.created_at as createdAt,
+        sp.product_idea as productIdea,
+        sp.target_user as targetUser,
+        sp.current_stage as currentStage,
+        sp.ai_summary as aiSummary,
+        up.traits,
+        up.behavior_patterns,
+        up.updated_at as personaUpdatedAt
+      FROM users u
+      LEFT JOIN startup_profiles sp ON u.id = sp.user_id
+      LEFT JOIN user_persona up ON u.id = up.user_id
+      ORDER BY u.created_at DESC
+    `).all();
+
+    // Get task stats for each user
+    const usersWithStats = users.map(user => {
+      const taskStats = db.prepare(`
+        SELECT
+          COUNT(*) as totalTasks,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completedTasks,
+          SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skippedTasks
+        FROM daily_tasks
+        WHERE user_id = ?
+      `).get(user.userId) || { totalTasks: 0, completedTasks: 0, skippedTasks: 0 };
+
+      const interviewCount = db.prepare(`SELECT COUNT(*) as count FROM interviews WHERE user_id = ?`).get(user.userId)?.count || 0;
+      const leadCount = db.prepare(`SELECT COUNT(*) as count FROM leads WHERE user_id = ?`).get(user.userId)?.count || 0;
+
+      return {
+        ...user,
+        traits: user.traits ? JSON.parse(user.traits) : {},
+        behavior_patterns: user.behavior_patterns ? JSON.parse(user.behavior_patterns) : {},
+        taskStats,
+        interviewCount,
+        leadCount,
+      };
+    });
+
+    res.json({ users: usersWithStats });
+  } catch (err) {
+    console.error('[/api/admin/users]', err.message);
+    res.status(500).json({ error: '获取用户列表失败' });
+  }
+});
+
+// GET /api/admin/evolution-logs — get evolution logs
+behaviorRouter.get('/admin/evolution-logs', (req, res) => {
+  try {
+    const logs = db.prepare(`
+      SELECT * FROM evolution_logs
+      ORDER BY created_at DESC
+      LIMIT 50
+    `).all();
+    res.json({ logs });
+  } catch (err) {
+    console.error('[/api/admin/evolution-logs]', err.message);
+    res.status(500).json({ error: '获取进化日志失败' });
+  }
+});
