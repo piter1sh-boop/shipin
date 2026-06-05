@@ -12,6 +12,8 @@ import LeadsPage from './pages/Leads'
 import CoachPage from './pages/Coach'
 import ReviewPage from './pages/Review'
 import AdminPage from './pages/Admin'
+import LoginPage from './pages/Login'
+import RegisterPage from './pages/Register'
 
 function App() {
   const { initUser, isOnboarded } = useStore()
@@ -25,6 +27,8 @@ function App() {
       <Routes>
         <Route path="/" element={isOnboarded ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/onboarding" element={isOnboarded ? <Navigate to="/dashboard" replace /> : <OnboardingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/today" element={<TodayPage />} />
