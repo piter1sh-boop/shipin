@@ -8,6 +8,7 @@ import cors from 'cors'
 import { aiRouter } from './routes/ai.js'
 import { behaviorRouter } from './routes/behavior.js'
 import { authRouter } from './routes/auth.js'
+import { aiUserRouter } from './routes/ai-user.js'
 
 // Initialize database
 initDatabase()
@@ -26,6 +27,9 @@ app.use('/api', behaviorRouter)  // 🆕 Add this
 
 // Auth routes
 app.use('/api/auth', authRouter);
+
+// AI User management routes
+app.use('/api/admin/ai-users', aiUserRouter);
 
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true }))
