@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, Badge } from '../components/ui'
+import { getToken } from '../lib/auth'
 
 interface UserData {
   userId: string
@@ -62,7 +63,14 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserData[]>([])
   const [logs, setLogs] = useState<EvolutionLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'users' | 'evolution'>('users')
+  const [tab, setTab] = useState<'users' | 'evolution' | 'create-ai'>('users')
+  const [selectedDomain, setSelectedDomain] = useState('');
+  const [selectedStage, setSelectedStage] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createdAIUser, setCreatedAIUser] = useState<any>(null);
+
+  const DOMAINS = ['AI开发者', '电商', 'SaaS', '内容创作', '本地服务'];
+  const STAGES = ['定位', '验证', 'MVP', '销售', '复盘'];
 
   useEffect(() => {
     fetchData()
@@ -82,6 +90,30 @@ export default function AdminPage() {
       console.error('Failed to fetch admin data:', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function createAIUser() {
+    if (!selectedDomain || !selectedStage) return;
+    setCreating(true);
+    try {
+      const token = getToken();
+      const res = await fetch('/api/admin/ai-users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ domain: selectedDomain, stage: selectedStage })
+      });
+      if (!res.ok) throw new Error('创建失败');
+      const data = await res.json();
+      setCreatedAIUser(data);
+      fetchData();
+    } catch (err) {
+      console.error('创建AI用户失败:', err);
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -112,6 +144,12 @@ export default function AdminPage() {
             className={`px-3 py-1 rounded text-sm ${tab === 'evolution' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
           >
             进化日志 {logs.length > 0 && <span className="ml-1 text-xs bg-red-500 text-white px-1.5 rounded">{logs.length}</span>}
+          </button>
+          <button
+            onClick={() => setTab('create-ai')}
+            className={`px-3 py-1 rounded text-sm ${tab === 'create-ai' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}
+          >
+            创建AI用户
           </button>
         </div>
       </div>
@@ -164,6 +202,55 @@ export default function AdminPage() {
                 </Card>
               )
             })
+          )}
+        </div>
+      ) : tab === 'create-ai' ? (
+        <div className="bg-white rounded shadow p-6 max-w-md">
+          <h2 className="text-lg font-bold mb-4">创建AI用户</h2>
+          <p className="text-sm text-gray-500 mb-4">选择创业领域和当前阶段，系统将生成完整虚拟画像。</p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">创业领域</label>
+              <select
+                value={selectedDomain}
+                onChange={e => setSelectedDomain(e.target.value)}
+                className="w-full border border-gray-300 rounded p-2"
+              >
+                <option value="">请选择</option>
+                {DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">当前阶段</label>
+              <select
+                value={selectedStage}
+                onChange={e => setSelectedStage(e.target.value)}
+                className="w-full border border-gray-300 rounded p-2"
+              >
+                <option value="">请选择</option>
+                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            <button
+              onClick={createAIUser}
+              disabled={!selectedDomain || !selectedStage || creating}
+              className="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700 disabled:opacity-50"
+            >
+              {creating ? '创建中...' : '创建AI用户'}
+            </button>
+          </div>
+
+          {createdAIUser && (
+            <div className="mt-6 p-4 bg-gray-50 rounded">
+              <h3 className="font-medium mb-2">创建成功！</h3>
+              <p><span className="text-gray-500">姓名：</span>{createdAIUser.profile?.name}</p>
+              <p><span className="text-gray-500">年龄：</span>{createdAIUser.profile?.age}</p>
+              <p><span className="text-gray-500">职业：</span>{createdAIUser.profile?.occupation}</p>
+              <p><span className="text-gray-500">主要卡点：</span>{createdAIUser.profile?.predictedBlockers?.mainBlocker}</p>
+            </div>
           )}
         </div>
       ) : (
