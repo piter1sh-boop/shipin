@@ -64,6 +64,9 @@ export default function AdminPage() {
   const [logs, setLogs] = useState<EvolutionLog[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'users' | 'evolution' | 'create-ai'>('users')
+  const [userFilter, setUserFilter] = useState<'all' | 'real' | 'ai'>('all')
+  const [selectedAIUser, setSelectedAIUser] = useState<any>(null)
+  const [aiUserLogs, setAiUserLogs] = useState<any[]>([])
   const [selectedDomain, setSelectedDomain] = useState('');
   const [selectedStage, setSelectedStage] = useState('');
   const [creating, setCreating] = useState(false);
@@ -78,18 +81,46 @@ export default function AdminPage() {
 
   async function fetchData() {
     try {
-      const [usersRes, logsRes] = await Promise.all([
+      const [usersRes, aiUsersRes, logsRes] = await Promise.all([
         fetch('/api/admin/users'),
+        fetch('/api/admin/ai-users'),
         fetch('/api/admin/evolution-logs'),
       ])
       const usersData = await usersRes.json()
+      const aiUsersData = await aiUsersRes.json()
       const logsData = await logsRes.json()
-      setUsers(usersData.users || [])
+
+      // 合并用户列表并添加类型标识
+      const allUsers = [
+        ...(usersData.users || []).map((u: any) => ({ ...u, isAI: false })),
+        ...(aiUsersData.aiUsers || []).map((u: any) => ({ ...u, isAI: true })),
+      ]
+
+      // 根据筛选过滤
+      const filtered = allUsers.filter((u: any) => {
+        if (userFilter === 'real') return !u.isAI;
+        if (userFilter === 'ai') return u.isAI;
+        return true;
+      })
+
+      setUsers(filtered)
       setLogs(logsData.logs || [])
     } catch (e) {
       console.error('Failed to fetch admin data:', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function startAIUser(userId: string) {
+    const token = getToken();
+    const res = await fetch(`/api/admin/ai-users/${userId}/start`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      alert('AI用户执行已启动');
+      fetchData();
     }
   }
 
@@ -155,7 +186,28 @@ export default function AdminPage() {
       </div>
 
       {tab === 'users' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => { setUserFilter('all'); fetchData(); }}
+              className={`px-3 py-1 rounded text-sm ${userFilter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => { setUserFilter('real'); fetchData(); }}
+              className={`px-3 py-1 rounded text-sm ${userFilter === 'real' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+            >
+              真实用户
+            </button>
+            <button
+              onClick={() => { setUserFilter('ai'); fetchData(); }}
+              className={`px-3 py-1 rounded text-sm ${userFilter === 'ai' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}
+            >
+              AI用户
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {users.length === 0 ? (
             <p className="text-gray-500 col-span-2">暂无用户数据</p>
           ) : (
@@ -166,7 +218,10 @@ export default function AdminPage() {
                 <Card key={user.userId} className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-gray-900">{user.name || '未命名用户'}</span>
-                    <Badge>{STAGE_LABELS[user.currentStage || 'positioning'] || '未知'}</Badge>
+                    <div className="flex gap-2">
+                      {user.isAI && <Badge variant="purple">AI用户</Badge>}
+                      <Badge>{STAGE_LABELS[user.currentStage || 'positioning'] || '未知'}</Badge>
+                    </div>
                   </div>
 
                   {user.productIdea && (
@@ -199,10 +254,28 @@ export default function AdminPage() {
                   </div>
 
                   <p className="text-xs text-gray-400 border-t border-gray-100 pt-2">{getRiskWarning(user)}</p>
+
+                  {user.isAI && (
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={() => { setSelectedAIUser(user); setTab('evolution'); }}
+                        className="flex-1 text-xs bg-purple-50 text-purple-600 py-1.5 rounded hover:bg-purple-100"
+                      >
+                        查看日志
+                      </button>
+                      <button
+                        onClick={() => startAIUser(user.userId)}
+                        className="flex-1 text-xs bg-green-50 text-green-600 py-1.5 rounded hover:bg-green-100"
+                      >
+                        启动执行
+                      </button>
+                    </div>
+                  )}
                 </Card>
               )
             })
           )}
+        </div>
         </div>
       ) : tab === 'create-ai' ? (
         <div className="bg-white rounded shadow p-6 max-w-md">

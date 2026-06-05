@@ -35,7 +35,7 @@ const LEAD_LABELS: Record<LeadStatus, string> = {
 }
 
 interface BadgeProps {
-  variant?: 'default' | TaskType | LeadStatus
+  variant?: 'default' | 'purple' | TaskType | LeadStatus
   children?: React.ReactNode
 }
 
@@ -43,6 +43,8 @@ export function Badge({ variant = 'default', children }: BadgeProps) {
   const classes =
     variant === 'default'
       ? 'bg-gray-100 text-gray-700'
+      : variant === 'purple'
+      ? 'bg-purple-100 text-purple-700'
       : variant in TASK_COLORS
       ? TASK_COLORS[variant as TaskType]
       : variant in LEAD_COLORS
