@@ -27,6 +27,9 @@ export function initDatabase() {
       name TEXT,
       email TEXT UNIQUE,
       role TEXT DEFAULT 'user',
+      password_hash TEXT,
+      is_ai_user INTEGER DEFAULT 0,
+      ai_profile_id TEXT,
       created_at TEXT,
       updated_at TEXT
     );
@@ -202,6 +205,34 @@ export function initDatabase() {
       metric_change TEXT,
       created_at TEXT
     );
+
+    -- AI用户画像表
+    CREATE TABLE IF NOT EXISTS ai_profiles (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id),
+      name TEXT,
+      age INTEGER,
+      occupation TEXT,
+      education TEXT,
+      city TEXT,
+      personality TEXT,
+      skills TEXT,
+      background TEXT,
+      thinking_habits TEXT,
+      predicted_blockers TEXT,
+      goals_30days TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    -- AI用户执行日志表
+    CREATE TABLE IF NOT EXISTS ai_agent_logs (
+      id TEXT PRIMARY KEY,
+      ai_user_id TEXT REFERENCES users(id),
+      action_type TEXT,
+      details TEXT,
+      created_at TEXT
+    );
   `);
 
   // Create indexes
@@ -211,6 +242,8 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_task_recommendations_user ON task_recommendations(user_id, day_number);
     CREATE INDEX IF NOT EXISTS idx_interviews_user ON interviews(user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_leads_user ON leads(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_ai_profiles_user ON ai_profiles(user_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_agent_logs_user ON ai_agent_logs(ai_user_id, created_at);
   `);
 
   console.log('[DB] Database initialized successfully');
