@@ -38,7 +38,7 @@ behaviorRouter.post('/behavior', (req, res) => {
 behaviorRouter.get('/user-context/:userId', (req, res) => {
   const { userId } = req.params;
 
-  const persona = db.prepare('SELECT * FROM user_persona WHERE user_id = ?').get(userId);
+  const persona = db.prepare('SELECT * FROM user_persona WHERE user_id = ?').get(userId) || null;
   const recentBlockers = db.prepare(`
     SELECT blocked_text FROM daily_checkins
     WHERE user_id = ? ORDER BY created_at DESC LIMIT 3
@@ -49,7 +49,7 @@ behaviorRouter.get('/user-context/:userId', (req, res) => {
   `).get(userId);
 
   res.json({
-    persona,
+    persona: persona || null,
     recentBlockers,
     recentHitRate,
   });

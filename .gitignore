@@ -28,3 +28,5 @@ npm-debug.log*
 .cache/
 .tmp/
 data/*.db
+data/*.db-wal
+data/*.db-shm

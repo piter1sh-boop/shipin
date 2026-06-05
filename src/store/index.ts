@@ -90,6 +90,9 @@ interface StoreState {
   // Actions - Coach
   sendCoachMessage: (content: string) => Promise<void>
 
+  // Actions - Migration
+  migrateToBackend: () => Promise<{ ok: boolean; report: any }>
+
   // Computed helpers
   getTodayTasks: () => DailyTask[]
   getInterviewsCount: () => number
@@ -398,5 +401,33 @@ export const useStore = create<StoreState>((set, get) => ({
     const start = new Date(plan.startDate).getTime()
     const now = Date.now()
     return Math.min(30, Math.max(1, Math.floor((now - start) / 86400000) + 1))
+  },
+
+  migrateToBackend: async () => {
+    try {
+      const localStorageData = {
+        user: get().user,
+        startupProfile: get().startupProfile,
+        currentPlan: get().currentPlan,
+        dailyTasks: get().dailyTasks,
+        checkins: get().checkins,
+        interviews: get().interviews,
+        leads: get().leads,
+        coachMessages: get().coachMessages,
+        weeklyReviews: get().weeklyReviews,
+      }
+
+      const res = await fetch('/api/migrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ localStorageData }),
+      })
+
+      const data = await res.json()
+      return data
+    } catch (e) {
+      console.error('[store] Migration failed:', e)
+      return { ok: false, error: String(e) }
+    }
   },
 }))
